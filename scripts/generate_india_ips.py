@@ -44,7 +44,7 @@ def collect_india_networks(
         mapped = profile.map_record(record)
         if mapped is None or mapped.country != "IN":
             continue
-        # DB-IP City Lite often omits subdivision ISO for India; quota by name.
+        # Flat GeoLite2 city has no subdivision ISO; quota by English state name.
         label = mapped.state_name or mapped.state_iso or "UNKNOWN"
         by_state[label].append(network)
     return by_state
@@ -110,8 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--count", type=int, default=1000, help="Target unique IPs")
     parser.add_argument(
         "--profile",
-        default=os.environ.get("GEO_DB_READER_PROFILE", "dbip"),
-        choices=("dbip", "maxmind"),
+        default=os.environ.get("GEO_DB_READER_PROFILE", "geolite2-flat"),
+        choices=("geolite2-flat",),
     )
     args = parser.parse_args(argv)
 

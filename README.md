@@ -1,8 +1,8 @@
 # IP to Location Service
 
-Small FastAPI service that maps an IPv4 or IPv6 address to country and administrative state using a local MMDB file. India (state / union territory) is the accuracy focus. The default database is [DB-IP City Lite](https://db-ip.com/).
+Small FastAPI service that maps an IPv4 address to country and administrative state using a local MMDB file. India (state / union territory) is the accuracy focus. The default database is [sapics/ip-location-db](https://github.com/sapics/ip-location-db) GeoLite2 city (IPv4).
 
-This product includes IP to City Lite data from [DB-IP](https://db-ip.com/) — IP Geolocation by DB-IP, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+This product includes GeoLite Data created by MaxMind, available from [https://www.maxmind.com](https://www.maxmind.com).
 
 ## Requirements
 
@@ -19,7 +19,7 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-On start the process **must** download and open an MMDB. If the current UTC month file is missing it tries the previous month. If both fail the process exits, even when an older file is already on disk.
+On start the process **must** download and open an MMDB. If the configured URL fails the process exits, even when an older file is already on disk. For monthly URL templates containing `{YYYY-MM}`, the previous UTC month is tried when the current month file is missing.
 
 ```bash
 curl 'http://127.0.0.1:8000/v1/location?ip=49.36.1.1'
@@ -32,26 +32,26 @@ A successful lookup is a thin JSON document:
 {
   "ip": "49.36.1.1",
   "country": "IN",
-  "state_iso": "IN-MH",
+  "state_iso": null,
   "state_name": "Maharashtra",
   "found": true
 }
 ```
 
-`GET /healthz` returns 200 only when an MMDB reader is open.
+`state_iso` is always `null` with the default flat GeoLite2 profile. IPv6 addresses are rejected with `400`. `GET /healthz` returns 200 only when an MMDB reader is open.
 
 ## Environment
 
 | Variable | Default |
 |---|---|
-| `GEO_DB_URL` | `https://download.db-ip.com/free/dbip-city-lite-{YYYY-MM}.mmdb.gz` |
+| `GEO_DB_URL` | `https://github.com/sapics/ip-location-db/releases/download/latest/geolite2-city-ipv4.mmdb` |
 | `GEO_DB_UPDATE_INTERVAL_SECONDS` | `3600` |
 | `GEO_DB_PATH` | `data/geo.mmdb` |
-| `GEO_DB_READER_PROFILE` | `dbip` (`maxmind` is also supported) |
+| `GEO_DB_READER_PROFILE` | `geolite2-flat` |
 | `HOST` | `0.0.0.0` |
 | `PORT` | `8000` |
 
-`{YYYY-MM}` is replaced with the current UTC month. A URL without the placeholder is used as-is. Copy `.env.example` to `.env` for local runs. After a successful start the service refreshes on the configured interval; a failed refresh is logged and the current reader is kept.
+A URL with `{YYYY-MM}` is resolved against the current UTC month (previous month on start fallback). A URL without the placeholder is used as-is. Copy `.env.example` to `.env` for local runs. After a successful start the service refreshes on the configured interval; a failed refresh is logged and the current reader is kept.
 
 ## Docker
 

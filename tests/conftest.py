@@ -25,7 +25,7 @@ def settings(tmp_path) -> Settings:
     return Settings(
         geo_db_path=str(tmp_path / "geo.mmdb"),
         geo_db_update_interval_seconds=3600,
-        geo_db_reader_profile="dbip",
+        geo_db_reader_profile="geolite2-flat",
     )
 
 
@@ -34,20 +34,18 @@ def fake_reader() -> FakeReader:
     return FakeReader(
         {
             "49.36.1.1": {
-                "country": {"iso_code": "IN"},
-                "subdivisions": [{"iso_code": "MH", "names": {"en": "Maharashtra"}}],
-                "city": {"names": {"en": "Mumbai"}},
-                "location": {"latitude": 19.07, "longitude": 72.87},
-            },
-            "2405:201:1::1": {
-                "country": {"iso_code": "IN"},
-                "subdivisions": [{"iso_code": "KA", "names": {"en": "Karnataka"}}],
+                "country_code": "IN",
+                "state1": "Maharashtra",
+                "state2": "",
+                "city": "Mumbai",
+                "latitude": 19.07,
+                "longitude": 72.87,
             },
             "8.8.8.8": {
-                "country": {"iso_code": "US"},
+                "country_code": "US",
             },
             "1.2.3.4": {
-                "country": {"iso_code": "IN"},
+                "country_code": "IN",
             },
         }
     )

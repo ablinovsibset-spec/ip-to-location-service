@@ -13,56 +13,31 @@ class ReaderProfile(Protocol):
     def map_record(self, record: Any) -> MappedLocation | None: ...
 
 
-def _first_subdivision(record: dict[str, Any]) -> dict[str, Any] | None:
-    subdivisions = record.get("subdivisions") or []
-    if not subdivisions:
-        return None
-    first = subdivisions[0]
-    return first if isinstance(first, dict) else None
-
-
-def map_city_schema(record: Any) -> MappedLocation | None:
-    """Map a MaxMind/DB-IP city-schema record to country + first subdivision."""
+def map_geolite2_flat(record: Any) -> MappedLocation | None:
+    """Map a sapics/ip-location-db GeoLite2 flat city record."""
     if not isinstance(record, dict):
         return None
-    country = record.get("country") or {}
-    if not isinstance(country, dict):
-        return None
-    country_iso = country.get("iso_code")
-    if not country_iso:
+    country_code = record.get("country_code")
+    if not country_code:
         return None
 
-    state_iso = None
-    state_name = None
-    subdivision = _first_subdivision(record)
-    if subdivision:
-        sub_iso = subdivision.get("iso_code")
-        names = subdivision.get("names") or {}
-        if sub_iso:
-            state_iso = sub_iso if "-" in str(sub_iso) else f"{country_iso}-{sub_iso}"
-        if isinstance(names, dict):
-            state_name = names.get("en")
+    state1 = record.get("state1")
+    state_name = str(state1) if state1 else None
 
     return MappedLocation(
-        country=str(country_iso),
-        state_iso=state_iso,
+        country=str(country_code),
+        state_iso=None,
         state_name=state_name,
     )
 
 
-class DbipProfile:
+class Geolite2FlatProfile:
     def map_record(self, record: Any) -> MappedLocation | None:
-        return map_city_schema(record)
-
-
-class MaxmindProfile:
-    def map_record(self, record: Any) -> MappedLocation | None:
-        return map_city_schema(record)
+        return map_geolite2_flat(record)
 
 
 PROFILES: dict[str, ReaderProfile] = {
-    "dbip": DbipProfile(),
-    "maxmind": MaxmindProfile(),
+    "geolite2-flat": Geolite2FlatProfile(),
 }
 
 

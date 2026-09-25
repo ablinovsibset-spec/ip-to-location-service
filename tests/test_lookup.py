@@ -16,7 +16,7 @@ async def test_ipv4_lookup_success(client):
     assert body == {
         "ip": "49.36.1.1",
         "country": "IN",
-        "state_iso": "IN-MH",
+        "state_iso": None,
         "state_name": "Maharashtra",
         "found": True,
     }
@@ -26,15 +26,10 @@ async def test_ipv4_lookup_success(client):
 
 
 @pytest.mark.asyncio
-async def test_ipv6_lookup_success(client):
+async def test_ipv6_is_400(client):
     response = await client.get("/v1/location", params={"ip": "2405:201:1::1"})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["ip"] == "2405:201:1::1"
-    assert body["country"] == "IN"
-    assert body["state_iso"] == "IN-KA"
-    assert body["state_name"] == "Karnataka"
-    assert body["found"] is True
+    assert response.status_code == 400
+    assert "IPv6" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -105,27 +100,46 @@ async def test_healthz_not_200_when_reader_closed(settings):
 
 
 def test_lookup_rejects_invalid_and_private(geo_db):
-    profile = get_profile("dbip")
+    profile = get_profile("geolite2-flat")
     with pytest.raises(InvalidIpError):
         lookup_location("not-an-ip", geo_db, profile)
+    with pytest.raises(InvalidIpError):
+        lookup_location("2405:201:1::1", geo_db, profile)
     with pytest.raises(LocationNotFoundError):
         lookup_location("192.168.0.1", geo_db, profile)
 
 
-def test_maxmind_profile_maps_same_city_schema():
-    profile = get_profile("maxmind")
+def test_geolite2_flat_profile_maps_flat_schema():
+    profile = get_profile("geolite2-flat")
     mapped = profile.map_record(
         {
-            "country": {"iso_code": "IN"},
-            "subdivisions": [{"iso_code": "DL", "names": {"en": "Delhi"}}],
+            "country_code": "IN",
+            "state1": "National Capital Territory of Delhi",
+            "state2": "",
+            "city": "New Delhi",
         }
     )
     assert mapped is not None
     assert mapped.country == "IN"
-    assert mapped.state_iso == "IN-DL"
-    assert mapped.state_name == "Delhi"
+    assert mapped.state_iso is None
+    assert mapped.state_name == "National Capital Territory of Delhi"
+
+
+def test_geolite2_flat_ignores_state2():
+    profile = get_profile("geolite2-flat")
+    mapped = profile.map_record(
+        {
+            "country_code": "GB",
+            "state1": "England",
+            "state2": "Barnet",
+        }
+    )
+    assert mapped is not None
+    assert mapped.country == "GB"
+    assert mapped.state_iso is None
+    assert mapped.state_name == "England"
 
 
 def test_fake_reader_is_used_not_live_mmdb():
-    reader = FakeReader({"1.1.1.1": {"country": {"iso_code": "AU"}}})
-    assert reader.get("1.1.1.1")["country"]["iso_code"] == "AU"
+    reader = FakeReader({"1.1.1.1": {"country_code": "AU"}})
+    assert reader.get("1.1.1.1")["country_code"] == "AU"

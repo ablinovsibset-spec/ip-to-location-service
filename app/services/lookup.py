@@ -35,6 +35,8 @@ def lookup_location(
     profile: ReaderProfile,
 ) -> LocationResult:
     addr = parse_ip(ip)
+    if isinstance(addr, ipaddress.IPv6Address):
+        raise InvalidIpError("IPv6 is not supported")
     if not addr.is_global:
         raise LocationNotFoundError("Location not found")
 

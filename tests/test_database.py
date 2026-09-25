@@ -60,8 +60,9 @@ def _handler_factory(routes: dict[str, httpx.Response], seen: list):
 
 @pytest.mark.asyncio
 async def test_start_uses_previous_month_when_current_missing(settings, monkeypatch):
-    current = "dbip-city-lite-2026-09.mmdb.gz"
-    previous = "dbip-city-lite-2026-08.mmdb.gz"
+    settings.geo_db_url = "https://example.com/db-{YYYY-MM}.mmdb.gz"
+    current = "db-2026-09.mmdb.gz"
+    previous = "db-2026-08.mmdb.gz"
     seen: list[httpx.Request] = []
     routes = {
         current: httpx.Response(404, text="not found"),

@@ -1,0 +1,38 @@
+India IP coverage (sampled / quota):
+  Andaman and Nicobar: 28/28
+  Andhra Pradesh: 28/28
+  Arunachal Pradesh: 28/28
+  Assam: 28/28
+  Bihar: 28/28
+  Chandigarh: 28/28
+  Chhattisgarh: 28/28
+  Dadra and Nagar Haveli and Daman and Diu: 28/28
+  Goa: 28/28
+  Gujarat: 28/28
+  Haryana: 28/28
+  Himachal Pradesh: 28/28
+  Jammu and Kashmir: 28/28
+  Jharkhand: 28/28
+  Karnataka: 28/28
+  Kerala: 28/28
+  Lakshadweep: 28/28
+  Madhya Pradesh: 28/28
+  Maharashtra: 28/28
+  Manipur: 28/28
+  Meghalaya: 28/28
+  Mizoram: 28/28
+  Nagaland: 28/28
+  National Capital Territory of Delhi: 28/28
+  Odisha: 28/28
+  Punjab: 28/28
+  Rajasthan: 28/28
+  Sikkim: 28/28
+  Tamil Nadu: 27/27
+  Telangana: 27/27
+  Tripura: 27/27
+  UNKNOWN: 27/27
+  Union Territory of Puducherry: 27/27
+  Uttar Pradesh: 27/27
+  Uttarakhand: 27/27
+  West Bengal: 27/27
+Total: 1000
