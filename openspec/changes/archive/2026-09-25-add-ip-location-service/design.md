@@ -58,15 +58,15 @@ Profiles exist so a future vendor-specific field rename does not leak into the r
 
 ### 5. Generator
 
-Open the same local MMDB. Walk networks whose country is `IN`. Sample random hosts (v4 and v6 as the ranges appear). Bucket by MMDB subdivision ISO. Target `1000 / N` per observed state (best effort). Write `ips.txt` (one IP per line) and print coverage to stderr. No committed fixture.
+Open the same local MMDB. Walk networks whose country is `IN`. Sample random hosts (v4 and v6 as the ranges appear). Bucket by MMDB English subdivision name (ISO / `UNKNOWN` fallback — DB-IP Lite often omits India subdivision ISO). Target `1000 / N` per observed state (best effort). Write `ips.txt` (one IP per line) and print coverage to stderr. No committed fixture.
 
 **Alternative:** APNIC delegated ranges — more independent, but the quota label still needs a geo source; local MMDB was chosen. **Alternative:** quota via ip-api — would burn the compare budget during generation.
 
 ### 6. Compare script
 
-`scripts/compare_ips.py --input ips.txt --output report.csv --base-url $SERVICE_BASE_URL`. For each IP: `GET {base}/v1/location?ip=...` and `http://ip-api.com/json/{ip}?fields=status,message,countryCode,region,regionName`. Sleep to stay under 45 req/min. Strip `IN-` (or `{CC}-`) from service `state_iso` before comparing to `region`. Names are CSV columns only.
+`scripts/compare_ips.py --input ips.txt --output report.csv --base-url $SERVICE_BASE_URL`. For each IP: `GET {base}/v1/location?ip=...` and `http://ip-api.com/json/{ip}?fields=status,message,countryCode,region,regionName`. Sleep to stay under 45 req/min. Compare service `state_name` to ip-api `regionName` (whitespace + case normalized). The CSV lists mismatches only: `ip`, `expected_state_name` (ip-api), `service_state_name` (service DB).
 
-Resume: if `report.csv` exists, load IPs already written and skip them. Append rows as they complete. `429` / transport errors retry with backoff; JSON `status=fail` or empty `region` after a 200 from ip-api is mismatch.
+Resume: track every processed IP in `report.csv.done` (match or mismatch) and skip those on restart. Append mismatch rows as they complete. `429` / transport errors retry with backoff; JSON `status=fail` or empty `regionName` after a 200 from ip-api is mismatch.
 
 **Alternative:** call the lookup library in-process — rejected; the brief requires going through the service.
 
@@ -76,7 +76,7 @@ pytest + httpx ASGI client; mock reader and (for script unit tests) mock HTTP. N
 
 ## Risks / Trade-offs
 
-- [Lite MMDB disagrees with ip-api on Indian states] → Expected; report is a measurement, not a CI gate. Verdict is ISO-only to avoid name noise.
+- [Lite MMDB disagrees with ip-api on Indian states] → Expected; report is a measurement, not a CI gate. Verdict is name-based because DB-IP Lite often omits India subdivision ISO.
 - [ip-api free is HTTP-only and 45 req/min] → Documented; ~20–25 min for 1000 rows; resume + throttle.
 - [1st-of-month file missing] → Previous-month fallback on start.
 - [Hourly download of a monthly file] → `304` / checksum skip; still honors the one-hour interval.

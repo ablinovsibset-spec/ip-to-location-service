@@ -80,10 +80,10 @@ Generate about 1000 random Indian IPs from the local MMDB (per-state quota, best
 python scripts/generate_india_ips.py --db data/geo.mmdb --output ips.txt --count 1000
 ```
 
-Compare the running service to ip-api.com (ISO state codes only, ≤45 ip-api requests/min, resumable CSV):
+Compare the running service to ip-api.com (English state names, ≤45 ip-api requests/min). The CSV lists **mismatches only**: IP, expected name (ip-api), service DB name, and `note=synonym` when the names are known aliases (e.g. Delhi / NCT of Delhi). Progress for resume is tracked in `report.csv.done`.
 
 ```bash
 python scripts/compare_ips.py --input ips.txt --output report.csv --base-url http://127.0.0.1:8000
 ```
 
-Re-running with the same `--output` skips IPs already written to the CSV.
+Re-running with the same `--output` skips IPs already listed in the `.done` file.

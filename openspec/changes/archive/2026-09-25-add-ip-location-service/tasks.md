@@ -22,7 +22,7 @@
 
 - [x] 4.1 Test lookup success, missing subdivision, invalid IP (400), private/unknown (404), IPv4 and IPv6 with a mocked reader
 - [x] 4.2 Test URL month resolution, previous-month fallback, start failure, and refresh-keeps-old with mocked HTTP
-- [x] 4.3 Test ISO verdict helper (prefix strip, name ignored, ip-api fail → mismatch) without calling the network
+- [x] 4.3 Test name verdict helper (case/whitespace normalize, ISO ignored, ip-api fail → mismatch) without calling the network
 
 ## 5. Evaluation scripts
 

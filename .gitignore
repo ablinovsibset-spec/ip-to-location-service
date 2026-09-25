@@ -6,6 +6,7 @@ data/
 # Manual evaluation artifacts (do not commit)
 ips.txt
 *.csv
+*.csv.done
 
 # Python
 __pycache__/

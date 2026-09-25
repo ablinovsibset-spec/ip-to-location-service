@@ -44,7 +44,8 @@ def collect_india_networks(
         mapped = profile.map_record(record)
         if mapped is None or mapped.country != "IN":
             continue
-        label = mapped.state_iso or "UNKNOWN"
+        # DB-IP City Lite often omits subdivision ISO for India; quota by name.
+        label = mapped.state_name or mapped.state_iso or "UNKNOWN"
         by_state[label].append(network)
     return by_state
 

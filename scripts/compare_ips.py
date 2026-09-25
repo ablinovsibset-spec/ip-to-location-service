@@ -3,6 +3,7 @@
 
 Manual operator tool. Do not commit generated IP lists or CSV reports.
 Queries the HTTP service (not the lookup library in-process).
+Writes only mismatches: expected (ip-api) vs service DB state names.
 """
 
 from __future__ import annotations
@@ -20,47 +21,101 @@ MAX_IPAPI_PER_MINUTE = 45
 MIN_IPAPI_INTERVAL = 60.0 / MAX_IPAPI_PER_MINUTE
 CSV_FIELDS = [
     "ip",
-    "service_state_iso",
+    "expected_state_name",
     "service_state_name",
-    "ipapi_region",
-    "ipapi_region_name",
-    "verdict",
+    "note",
 ]
 
+# Alternate English labels for the same Indian state / UT (ip-api vs DB-IP).
+_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
+    frozenset(
+        {
+            "delhi",
+            "national capital territory of delhi",
+            "nct of delhi",
+            "nct delhi",
+        }
+    ),
+    frozenset(
+        {
+            "puducherry",
+            "pondicherry",
+            "union territory of puducherry",
+            "ut of puducherry",
+        }
+    ),
+    frozenset(
+        {
+            "andaman and nicobar",
+            "andaman and nicobar islands",
+            "andaman & nicobar",
+            "andaman & nicobar islands",
+        }
+    ),
+    frozenset({"odisha", "orissa"}),
+)
 
-def strip_country_prefix(state_iso: str | None) -> str | None:
-    if not state_iso:
+
+def normalize_name(value: str | None) -> str | None:
+    if value is None:
         return None
-    if "-" in state_iso:
-        return state_iso.split("-", 1)[1]
-    return state_iso
+    normalized = " ".join(str(value).split())
+    return normalized.casefold() or None
 
 
-def iso_verdict(
-    service_state_iso: str | None,
+def _synonym_canonical(normalized: str) -> str:
+    for group in _SYNONYM_GROUPS:
+        if normalized in group:
+            return sorted(group)[0]
+    return normalized
+
+
+def are_synonyms(left: str | None, right: str | None) -> bool:
+    a = normalize_name(left)
+    b = normalize_name(right)
+    if not a or not b or a == b:
+        return False
+    return _synonym_canonical(a) == _synonym_canonical(b)
+
+
+def mismatch_note(service_state_name: str | None, expected_state_name: str | None) -> str:
+    return "synonym" if are_synonyms(service_state_name, expected_state_name) else ""
+
+
+def name_verdict(
+    service_state_name: str | None,
     ipapi_status: str | None,
-    ipapi_region: str | None,
+    ipapi_region_name: str | None,
 ) -> str:
-    """Compare ISO subdivision codes only. Names never affect the verdict."""
-    if ipapi_status == "fail" or not ipapi_region:
+    """Compare English state names only. ISO codes never affect the verdict."""
+    if ipapi_status == "fail" or not normalize_name(ipapi_region_name):
         return "mismatch"
-    service_code = strip_country_prefix(service_state_iso)
-    if service_code and service_code.casefold() == ipapi_region.casefold():
+    service = normalize_name(service_state_name)
+    reference = normalize_name(ipapi_region_name)
+    if service and reference and service == reference:
         return "match"
     return "mismatch"
 
 
+def done_path_for(output_path: Path) -> Path:
+    return output_path.with_suffix(output_path.suffix + ".done")
+
+
 def load_done_ips(output_path: Path) -> set[str]:
-    if not output_path.exists():
+    path = done_path_for(output_path)
+    if not path.exists():
         return set()
     done: set[str] = set()
-    with output_path.open(newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            ip = (row.get("ip") or "").strip()
-            if ip:
-                done.add(ip)
+    for raw in path.read_text().splitlines():
+        ip = raw.strip()
+        if ip:
+            done.add(ip)
     return done
+
+
+def mark_done(done_file, ip: str) -> None:
+    done_file.write(f"{ip}\n")
+    done_file.flush()
 
 
 def read_input_ips(input_path: Path) -> list[str]:
@@ -116,14 +171,13 @@ def compare_one(client: httpx.Client, base_url: str, ip: str) -> dict[str, str |
     service = query_service(client, base_url, ip)
     ipapi = query_ipapi(client, ip)
     status = ipapi.get("status")
-    region = ipapi.get("region") or None
+    region_name = ipapi.get("regionName") or None
+    service_name = service.get("state_name")
     return {
         "ip": ip,
-        "service_state_iso": service.get("state_iso"),
-        "service_state_name": service.get("state_name"),
-        "ipapi_region": region,
-        "ipapi_region_name": ipapi.get("regionName"),
-        "verdict": iso_verdict(service.get("state_iso"), status, region),
+        "expected_state_name": region_name,
+        "service_state_name": service_name,
+        "verdict": name_verdict(service_name, status, region_name),
     }
 
 
@@ -133,9 +187,18 @@ def run(input_path: Path, output_path: Path, base_url: str) -> int:
     remaining = [ip for ip in ips if ip not in done]
     new_file = not output_path.exists()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    progress_path = done_path_for(output_path)
 
-    with output_path.open("a", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
+    with (
+        output_path.open("a", newline="") as handle,
+        progress_path.open("a") as done_file,
+    ):
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=CSV_FIELDS,
+            extrasaction="ignore",
+            lineterminator="\n",
+        )
         if new_file:
             writer.writeheader()
             handle.flush()
@@ -143,8 +206,20 @@ def run(input_path: Path, output_path: Path, base_url: str) -> int:
             for ip in remaining:
                 started = time.monotonic()
                 row = compare_one(client, base_url, ip)
-                writer.writerow(row)
-                handle.flush()
+                if row["verdict"] == "mismatch":
+                    writer.writerow(
+                        {
+                            "ip": row["ip"],
+                            "expected_state_name": row["expected_state_name"] or "",
+                            "service_state_name": row["service_state_name"] or "",
+                            "note": mismatch_note(
+                                row["service_state_name"],
+                                row["expected_state_name"],
+                            ),
+                        }
+                    )
+                    handle.flush()
+                mark_done(done_file, ip)
                 elapsed = time.monotonic() - started
                 sleep_for = MIN_IPAPI_INTERVAL - elapsed
                 if sleep_for > 0:
@@ -154,7 +229,10 @@ def run(input_path: Path, output_path: Path, base_url: str) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Manual compare of the location service vs ip-api.com (ISO state only)."
+        description=(
+            "Manual compare of the location service vs ip-api.com "
+            "(mismatch-only report: expected vs service state name)."
+        )
     )
     parser.add_argument("--input", required=True, type=Path, help="One IP per line")
     parser.add_argument("--output", required=True, type=Path, help="CSV report path")
