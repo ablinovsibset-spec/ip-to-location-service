@@ -2,7 +2,7 @@ import ipaddress
 from dataclasses import dataclass
 
 from app.services.database import GeoDatabase
-from app.services.profiles import MappedLocation, ReaderProfile
+from app.services.profiles import MappedLocation, map_ip2location_record
 
 
 class InvalidIpError(ValueError):
@@ -17,8 +17,7 @@ class LocationNotFoundError(LookupError):
 class LocationResult:
     ip: str
     country: str
-    state_iso: str | None
-    state_name: str | None
+    region: str | None
     found: bool = True
 
 
@@ -29,24 +28,19 @@ def parse_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
         raise InvalidIpError("Invalid IP address") from exc
 
 
-def lookup_location(
-    ip: str,
-    geo_db: GeoDatabase,
-    profile: ReaderProfile,
-) -> LocationResult:
+def lookup_location(ip: str, geo_db: GeoDatabase) -> LocationResult:
     addr = parse_ip(ip)
     if not addr.is_global:
         raise LocationNotFoundError("Location not found")
 
     record = geo_db.lookup_record(str(addr))
-    mapped: MappedLocation | None = profile.map_record(record)
+    mapped: MappedLocation | None = map_ip2location_record(record)
     if mapped is None:
         raise LocationNotFoundError("Location not found")
 
     return LocationResult(
         ip=ip,
         country=mapped.country,
-        state_iso=mapped.state_iso,
-        state_name=mapped.state_name,
+        region=mapped.region,
         found=True,
     )

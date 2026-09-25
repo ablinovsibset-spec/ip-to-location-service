@@ -1,7 +1,7 @@
 fastapi>=0.115,<1
 uvicorn[standard]>=0.32,<1
 pydantic-settings>=2.6,<3
-maxminddb>=2.6,<3
+IP2Location>=8.10,<9
 httpx>=0.28,<1
 pytest>=8,<9
 pytest-asyncio>=0.24,<1

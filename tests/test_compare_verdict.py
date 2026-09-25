@@ -15,7 +15,6 @@ def test_whitespace_normalized():
 
 
 def test_iso_difference_is_ignored():
-    # ISO codes are not arguments to the verdict helper on purpose.
     assert name_verdict("Maharashtra", "success", "Maharashtra") == "match"
     assert name_verdict("Karnataka", "success", "Karnataka") == "match"
 

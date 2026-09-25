@@ -2,11 +2,15 @@
 .env
 data/
 *.mmdb
+*.BIN
+*.bin
 
 # Manual evaluation artifacts (do not commit)
 ips.txt
 *.csv
 *.csv.done
+!reports/
+!reports/*.csv
 
 # Python
 __pycache__/

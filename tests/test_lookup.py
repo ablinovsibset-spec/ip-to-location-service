@@ -1,11 +1,11 @@
 import httpx
 import pytest
+from types import SimpleNamespace
 
 from app.main import create_app
 from app.services.database import GeoDatabase
 from app.services.lookup import InvalidIpError, LocationNotFoundError, lookup_location
-from app.services.profiles import get_profile
-from tests.conftest import FakeReader
+from app.services.profiles import map_ip2location_record
 
 
 @pytest.mark.asyncio
@@ -16,13 +16,12 @@ async def test_ipv4_lookup_success(client):
     assert body == {
         "ip": "49.36.1.1",
         "country": "IN",
-        "state_iso": "IN-MH",
-        "state_name": "Maharashtra",
+        "region": "Maharashtra",
         "found": True,
     }
     assert "city" not in body
-    assert "latitude" not in body
-    assert "longitude" not in body
+    assert "state_iso" not in body
+    assert "state_name" not in body
 
 
 @pytest.mark.asyncio
@@ -32,32 +31,29 @@ async def test_ipv6_lookup_success(client):
     body = response.json()
     assert body["ip"] == "2405:201:1::1"
     assert body["country"] == "IN"
-    assert body["state_iso"] == "IN-KA"
-    assert body["state_name"] == "Karnataka"
+    assert body["region"] == "Karnataka"
     assert body["found"] is True
 
 
 @pytest.mark.asyncio
-async def test_missing_subdivision_is_200_with_null_state(client):
+async def test_missing_region_is_200_with_null(client):
     response = await client.get("/v1/location", params={"ip": "1.2.3.4"})
     assert response.status_code == 200
     assert response.json() == {
         "ip": "1.2.3.4",
         "country": "IN",
-        "state_iso": None,
-        "state_name": None,
+        "region": None,
         "found": True,
     }
 
 
 @pytest.mark.asyncio
-async def test_non_indian_without_subdivision(client):
+async def test_non_indian_without_region(client):
     response = await client.get("/v1/location", params={"ip": "8.8.8.8"})
     assert response.status_code == 200
     body = response.json()
     assert body["country"] == "US"
-    assert body["state_iso"] is None
-    assert body["state_name"] is None
+    assert body["region"] is None
 
 
 @pytest.mark.asyncio
@@ -89,13 +85,13 @@ async def test_unknown_public_ip_is_404(client):
 
 
 @pytest.mark.asyncio
-async def test_healthz_200_when_reader_open(client):
+async def test_healthz_200_when_readers_open(client):
     response = await client.get("/healthz")
     assert response.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_healthz_not_200_when_reader_closed(settings):
+async def test_healthz_not_200_when_readers_closed(settings):
     geo_db = GeoDatabase(settings)
     app = create_app(settings=settings, geo_db=geo_db, start_database=False)
     transport = httpx.ASGITransport(app=app)
@@ -105,27 +101,18 @@ async def test_healthz_not_200_when_reader_closed(settings):
 
 
 def test_lookup_rejects_invalid_and_private(geo_db):
-    profile = get_profile("dbip")
     with pytest.raises(InvalidIpError):
-        lookup_location("not-an-ip", geo_db, profile)
+        lookup_location("not-an-ip", geo_db)
     with pytest.raises(LocationNotFoundError):
-        lookup_location("192.168.0.1", geo_db, profile)
+        lookup_location("192.168.0.1", geo_db)
 
 
-def test_maxmind_profile_maps_same_city_schema():
-    profile = get_profile("maxmind")
-    mapped = profile.map_record(
-        {
-            "country": {"iso_code": "IN"},
-            "subdivisions": [{"iso_code": "DL", "names": {"en": "Delhi"}}],
-        }
+def test_map_ip2location_dash_sentinels():
+    mapped = map_ip2location_record(
+        SimpleNamespace(country_short="IN", region="-")
     )
     assert mapped is not None
     assert mapped.country == "IN"
-    assert mapped.state_iso == "IN-DL"
-    assert mapped.state_name == "Delhi"
+    assert mapped.region is None
 
-
-def test_fake_reader_is_used_not_live_mmdb():
-    reader = FakeReader({"1.1.1.1": {"country": {"iso_code": "AU"}}})
-    assert reader.get("1.1.1.1")["country"]["iso_code"] == "AU"
+    assert map_ip2location_record(SimpleNamespace(country_short="-", region="-")) is None

@@ -3,7 +3,7 @@
 
 Manual operator tool. Do not commit generated IP lists or CSV reports.
 Queries the HTTP service (not the lookup library in-process).
-Writes only mismatches: expected (ip-api) vs service DB state names.
+Writes only mismatches: expected (ip-api) vs service region names.
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ MAX_IPAPI_PER_MINUTE = 45
 MIN_IPAPI_INTERVAL = 60.0 / MAX_IPAPI_PER_MINUTE
 CSV_FIELDS = [
     "ip",
-    "expected_state_name",
-    "service_state_name",
+    "expected_region",
+    "service_region",
     "note",
 ]
 
-# Alternate English labels for the same Indian state / UT (ip-api vs DB-IP).
+# Alternate English labels for the same Indian state / UT (ip-api vs IP2Location).
 _SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
     frozenset(
         {
@@ -78,19 +78,19 @@ def are_synonyms(left: str | None, right: str | None) -> bool:
     return _synonym_canonical(a) == _synonym_canonical(b)
 
 
-def mismatch_note(service_state_name: str | None, expected_state_name: str | None) -> str:
-    return "synonym" if are_synonyms(service_state_name, expected_state_name) else ""
+def mismatch_note(service_region: str | None, expected_region: str | None) -> str:
+    return "synonym" if are_synonyms(service_region, expected_region) else ""
 
 
 def name_verdict(
-    service_state_name: str | None,
+    service_region: str | None,
     ipapi_status: str | None,
     ipapi_region_name: str | None,
 ) -> str:
-    """Compare English state names only. ISO codes never affect the verdict."""
+    """Compare English region names only."""
     if ipapi_status == "fail" or not normalize_name(ipapi_region_name):
         return "mismatch"
-    service = normalize_name(service_state_name)
+    service = normalize_name(service_region)
     reference = normalize_name(ipapi_region_name)
     if service and reference and service == reference:
         return "match"
@@ -134,19 +134,16 @@ def query_service(client: httpx.Client, base_url: str, ip: str) -> dict:
     url = base_url.rstrip("/") + "/v1/location"
     response = client.get(url, params={"ip": ip}, timeout=30.0)
     if response.status_code != 200:
-        return {"state_iso": None, "state_name": None}
+        return {"region": None}
     body = response.json()
-    return {
-        "state_iso": body.get("state_iso"),
-        "state_name": body.get("state_name"),
-    }
+    return {"region": body.get("region")}
 
 
 def query_ipapi(client: httpx.Client, ip: str, retries: int = 5) -> dict:
     url = IPAPI_URL.format(ip=ip)
     delay = 2.0
     last_error: Exception | None = None
-    for attempt in range(retries):
+    for _attempt in range(retries):
         try:
             response = client.get(url, timeout=30.0)
             if response.status_code == 429:
@@ -172,12 +169,12 @@ def compare_one(client: httpx.Client, base_url: str, ip: str) -> dict[str, str |
     ipapi = query_ipapi(client, ip)
     status = ipapi.get("status")
     region_name = ipapi.get("regionName") or None
-    service_name = service.get("state_name")
+    service_region = service.get("region")
     return {
         "ip": ip,
-        "expected_state_name": region_name,
-        "service_state_name": service_name,
-        "verdict": name_verdict(service_name, status, region_name),
+        "expected_region": region_name,
+        "service_region": service_region,
+        "verdict": name_verdict(service_region, status, region_name),
     }
 
 
@@ -210,11 +207,11 @@ def run(input_path: Path, output_path: Path, base_url: str) -> int:
                     writer.writerow(
                         {
                             "ip": row["ip"],
-                            "expected_state_name": row["expected_state_name"] or "",
-                            "service_state_name": row["service_state_name"] or "",
+                            "expected_region": row["expected_region"] or "",
+                            "service_region": row["service_region"] or "",
                             "note": mismatch_note(
-                                row["service_state_name"],
-                                row["expected_state_name"],
+                                row["service_region"],
+                                row["expected_region"],
                             ),
                         }
                     )
@@ -231,7 +228,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Manual compare of the location service vs ip-api.com "
-            "(mismatch-only report: expected vs service state name)."
+            "(mismatch-only report: expected vs service region name)."
         )
     )
     parser.add_argument("--input", required=True, type=Path, help="One IP per line")

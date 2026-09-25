@@ -4,7 +4,6 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
 
 from app.services.lookup import InvalidIpError, LocationNotFoundError, lookup_location
-from app.services.profiles import get_profile
 
 router = APIRouter()
 
@@ -14,8 +13,7 @@ class LocationResponse(BaseModel):
 
     ip: str
     country: str
-    state_iso: str | None
-    state_name: str | None
+    region: str | None
     found: bool
 
 
@@ -28,9 +26,8 @@ async def get_location(
         raise HTTPException(status_code=400, detail="Missing ip query parameter")
 
     geo_db = request.app.state.geo_db
-    profile = get_profile(request.app.state.settings.geo_db_reader_profile)
     try:
-        result = lookup_location(ip, geo_db, profile)
+        result = lookup_location(ip, geo_db)
     except InvalidIpError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LocationNotFoundError as exc:
@@ -39,8 +36,7 @@ async def get_location(
     return LocationResponse(
         ip=result.ip,
         country=result.country,
-        state_iso=result.state_iso,
-        state_name=result.state_name,
+        region=result.region,
         found=result.found,
     )
 
