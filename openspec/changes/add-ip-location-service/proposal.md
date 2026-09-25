@@ -24,7 +24,7 @@ Need a small HTTP service that resolves an IP address to a location, with India 
 
 ## Impact
 
-- New Python 3.13 application under `app/` (FastAPI + MMDB reader), `tests/`, `scripts/`, `requirements.txt`, `.env.example`, Dockerfile, README.
+- New Python 3.14 application under `app/` (FastAPI + MMDB reader), `tests/`, `scripts/`, `requirements.txt`, `.env.example`, Dockerfile, README.
 - External systems: DB-IP City Lite (or a configured MMDB URL) on start and hourly; ip-api.com only from the manual compare script (rate-limited).
 - No existing APIs or packages to break.
 - License: DB-IP City Lite is CC BY 4.0 — attribution in README.

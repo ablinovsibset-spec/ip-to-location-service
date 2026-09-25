@@ -1,6 +1,6 @@
 ## Context
 
-Greenfield repo (see proposal.md — Why). Constraints: Python 3.13, FastAPI, pip only (no uv), FastAPI tutorial layout (`app/`), single uvicorn process, env-only config, IPv4 and IPv6. Behavior contracts are in `specs/ip-location-lookup`, `specs/geo-database`, and `specs/india-state-eval`.
+Greenfield repo (see proposal.md — Why). Constraints: Python 3.14, FastAPI, pip only (no uv), FastAPI tutorial layout (`app/`), single uvicorn process, env-only config, IPv4 and IPv6. Behavior contracts are in `specs/ip-location-lookup`, `specs/geo-database`, and `specs/india-state-eval`.
 
 Default data file is DB-IP City Lite (~20–30 MB gzip, monthly). The dated URL in the original brief is treated as an instance of `dbip-city-lite-{YYYY-MM}.mmdb.gz`, not a frozen September 2026 pin.
 
@@ -72,7 +72,7 @@ Resume: if `report.csv` exists, load IPs already written and skip them. Append r
 
 ### 7. Tests and container
 
-pytest + httpx ASGI client; mock reader and (for script unit tests) mock HTTP. No GitHub Actions. Dockerfile: `python:3.13-slim`, install requirements, `HEALTHCHECK` hits `/healthz`, persist `data/` as a volume (start still re-downloads). Thin `compose.yaml` for local `env_file`. README states DB-IP CC BY 4.0 attribution.
+pytest + httpx ASGI client; mock reader and (for script unit tests) mock HTTP. No GitHub Actions. Dockerfile: `python:3.14-slim`, install requirements, `HEALTHCHECK` hits `/healthz`, persist `data/` as a volume (start still re-downloads). Thin `compose.yaml` for local `env_file`. README states DB-IP CC BY 4.0 attribution.
 
 ## Risks / Trade-offs
 
